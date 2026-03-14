@@ -4,7 +4,7 @@ import { useAppStore } from "@/lib/store";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { useEffect, useRef, useState } from "react";
-import { createOpenAIClient } from "@/lib/openrouter";
+import { createOpenAIClient, fetchOpenRouterModels } from "@/lib/openrouter";
 import { BotIcon, MessageSquareIcon } from "lucide-react";
 
 export function ChatArea() {
@@ -16,6 +16,8 @@ export function ChatArea() {
     updateMessage,
     cachedFreeModelIds,
     cachedModelNames,
+    setCachedFreeModelIds,
+    setCachedModelNames,
   } = useAppStore();
   const activeChat = chats.find((c) => c.id === activeChatId);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -100,8 +102,19 @@ Violating these rules makes the response completely unusable. Follow them in EVE
       message: string;
     } => {
       if (err.name === "AbortError") return { type: "abort", message: "" };
-      const msg = (err.message || "").toLowerCase();
-      const status = err.status || err.statusCode || 0;
+      // OpenAI SDK may nest the real message in err.error?.message
+      const rawMsg =
+        err.message || err.error?.message || err.error?.error?.message || "";
+      const msg = rawMsg.toLowerCase();
+      const status = err.status || err.statusCode || err.code || 0;
+
+      // Log for debugging (visible in browser console, using warn to avoid Next.js error overlay)
+      console.warn("[RouterChat] API error:", {
+        status,
+        message: rawMsg,
+        type: err.constructor?.name,
+        raw: err,
+      });
 
       if (
         status === 429 ||
@@ -110,15 +123,21 @@ Violating these rules makes the response completely unusable. Follow them in EVE
         msg.includes("too many") ||
         msg.includes("overloaded")
       ) {
-        return { type: "rate_limit", message: err.message };
+        return { type: "rate_limit", message: rawMsg };
       }
       if (
+        status === 502 ||
+        status === 503 ||
         msg.includes("guardrail") ||
         msg.includes("no endpoints") ||
         msg.includes("no available") ||
-        msg.includes("free endpoints")
+        msg.includes("free endpoints") ||
+        msg.includes("not available") ||
+        msg.includes("no providers") ||
+        msg.includes("provider") ||
+        msg.includes("upstream")
       ) {
-        return { type: "no_endpoints", message: err.message };
+        return { type: "no_endpoints", message: rawMsg };
       }
       if (
         status === 402 ||
@@ -127,7 +146,7 @@ Violating these rules makes the response completely unusable. Follow them in EVE
         msg.includes("balance") ||
         msg.includes("credits")
       ) {
-        return { type: "payment", message: err.message };
+        return { type: "payment", message: rawMsg };
       }
       if (
         status === 401 ||
@@ -135,28 +154,38 @@ Violating these rules makes the response completely unusable. Follow them in EVE
         msg.includes("api key") ||
         msg.includes("unauthorized")
       ) {
-        return { type: "auth", message: err.message };
+        return { type: "auth", message: rawMsg };
       }
       return {
         type: "unknown",
-        message: err.message || "An unexpected error occurred.",
+        message: rawMsg || "An unexpected error occurred.",
       };
     };
 
-    // Preferred fallback models (well-known, high-capacity free models)
-    const preferredFallbacks = [
-      "google/gemini-2.5-flash:free",
-      "meta-llama/llama-3.3-70b-instruct:free",
-      "mistralai/mistral-small-3.1-24b-instruct:free",
-    ];
-    // Build fallback list: preferred models first, then fill with other cached free models
-    const seen = new Set(preferredFallbacks);
-    const extraFallbacks = cachedFreeModelIds
-      .filter((m) => !seen.has(m))
-      .slice(0, 5);
-    const fallbackModels = [...preferredFallbacks, ...extraFallbacks].filter(
-      (m) => m !== activeChat.model,
-    );
+    // Build fallback list from cached free models, or fetch fresh if cache is empty
+    const getFallbackModels = async (): Promise<string[]> => {
+      let freeIds = cachedFreeModelIds;
+      if (freeIds.length === 0 && apiKey) {
+        try {
+          const models = await fetchOpenRouterModels(apiKey);
+          freeIds = models
+            .filter(
+              (m) => m.id.endsWith(":free") || m.pricing?.prompt === "0",
+            )
+            .map((m) => m.id);
+          setCachedFreeModelIds(freeIds);
+          const nameMap: Record<string, string> = {};
+          models.forEach((m) => {
+            nameMap[m.id] = m.name;
+          });
+          setCachedModelNames(nameMap);
+        } catch {
+          // If fetch fails, no fallbacks available
+          return [];
+        }
+      }
+      return freeIds.filter((m) => m !== activeChat.model).slice(0, 8);
+    };
 
     try {
       const openai = createOpenAIClient(apiKey);
@@ -228,17 +257,17 @@ Violating these rules makes the response completely unusable. Follow them in EVE
           return;
         }
 
-        // Rate limit (429) or no_endpoints: try fallback models
-        if (
-          classified.type === "rate_limit" ||
-          classified.type === "no_endpoints"
-        ) {
+        // Any retriable error (rate_limit, no_endpoints, unknown): try fallback models
+        {
           const reason =
             classified.type === "rate_limit"
               ? "Rate limited"
-              : "Model unavailable";
+              : classified.type === "no_endpoints"
+                ? "Model unavailable"
+                : "Model error";
           let fallbackSuccess = false;
           let allNoEndpoints = classified.type === "no_endpoints";
+          const fallbackModels = await getFallbackModels();
           for (let i = 0; i < fallbackModels.length; i++) {
             const fallbackModel = fallbackModels[i];
             const displayName =
@@ -262,7 +291,8 @@ Violating these rules makes the response completely unusable. Follow them in EVE
               const fbClassified = classifyError(fallbackErr);
               if (fbClassified.type === "abort") throw fallbackErr;
               // Track whether every single failure is no_endpoints (account-level issue)
-              if (fbClassified.type !== "no_endpoints") allNoEndpoints = false;
+              if (fbClassified.type !== "no_endpoints")
+                allNoEndpoints = false;
               // Continue trying next fallback on any retriable error
             }
           }
@@ -284,14 +314,6 @@ Violating these rules makes the response completely unusable. Follow them in EVE
           }
           return;
         }
-
-        // Unknown error
-        updateMessage(
-          activeChat.id,
-          tempId,
-          `**Something went wrong**\n\n${classified.message}\n\nPlease try again or switch to a different model.`,
-        );
-        return;
       }
     } catch (err: any) {
       if (err.name === "AbortError") {

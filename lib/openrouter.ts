@@ -51,6 +51,7 @@ export function createOpenAIClient(apiKey: string) {
     baseURL: "https://openrouter.ai/api/v1",
     apiKey,
     dangerouslyAllowBrowser: true,
+    maxRetries: 0, // Disable SDK retries - we handle fallback to different models ourselves
     defaultHeaders: {
       "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "http://localhost:3000",
       "X-OpenRouter-Title": "RouterChat",
