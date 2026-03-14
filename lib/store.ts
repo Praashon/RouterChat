@@ -34,7 +34,7 @@ export interface AppState {
   chats: Chat[];
   activeChatId: string | null;
   
-  createChat: (model: string, systemPrompt?: string) => string;
+  createChat: (model: string, systemPrompt?: string, title?: string) => string;
   deleteChat: (id: string) => void;
   setActiveChat: (id: string | null) => void;
   updateChatTitle: (id: string, title: string) => void;
@@ -64,14 +64,14 @@ export const useAppStore = create<AppState>()(
       chats: [],
       activeChatId: null,
       
-      createChat: (model, systemPrompt) => {
+      createChat: (model, systemPrompt, title) => {
         const id = uuidv4();
         const state = get();
         const initialSystemPrompt = systemPrompt !== undefined ? systemPrompt : state.defaultSystemPrompt;
         
         const newChat: Chat = {
           id,
-          title: 'New Chat',
+          title: title || 'New Chat',
           messages: [],
           model,
           systemPrompt: initialSystemPrompt,

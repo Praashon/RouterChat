@@ -5,18 +5,14 @@ import { Button } from "@/components/ui/button"
 import { PlusIcon, MessageSquare, Trash2, Edit3, Settings } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SettingsModal } from "@/components/settings/SettingsModal"
+import { NewChatDialog } from "@/components/layout/NewChatDialog"
 import { useState } from "react"
 import { clsx } from "clsx"
 
 export function Sidebar({ isMobile = false }: { isMobile?: boolean }) {
-  const { chats, activeChatId, createChat, setActiveChat, deleteChat, updateChatTitle } = useAppStore()
+  const { chats, activeChatId, setActiveChat, deleteChat, updateChatTitle } = useAppStore()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState("")
-
-  const handleNewChat = () => {
-    const lastModel = chats.length > 0 ? chats[0].model : "google/gemini-2.5-flash:free"
-    createChat(lastModel)
-  }
 
   return (
     <div className={clsx(
@@ -24,14 +20,15 @@ export function Sidebar({ isMobile = false }: { isMobile?: boolean }) {
       isMobile ? "w-full" : "w-[280px]"
     )}>
       <div className="p-4 flex items-center gap-2">
-        <Button 
-          onClick={handleNewChat} 
-          className="w-full justify-start gap-2 h-10 rounded-xl bg-background border border-border/40 text-foreground hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 shadow-sm transition-all outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          variant="secondary"
-        >
-          <PlusIcon className="w-4 h-4 opacity-70" />
-          <span className="font-medium tracking-tight">New Chat</span>
-        </Button>
+        <NewChatDialog>
+          <Button 
+            className="w-full justify-start gap-2 h-10 rounded-xl bg-background border border-border/40 text-foreground hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 shadow-sm transition-all outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            variant="secondary"
+          >
+            <PlusIcon className="w-4 h-4 opacity-70" />
+            <span className="font-medium tracking-tight">New Chat</span>
+          </Button>
+        </NewChatDialog>
       </div>
 
       <ScrollArea className="flex-1 px-3">

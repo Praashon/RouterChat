@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useAppStore } from "@/lib/store"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -43,11 +43,9 @@ export function SettingsModal({ children }: { children: React.ReactNode }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<div />}>
-        <div onClick={() => handleOpenChange(true)} className="w-full">
-          {children}
-        </div>
-      </DialogTrigger>
+      <div onClick={() => handleOpenChange(true)} className="w-full">
+        {children}
+      </div>
 
       <DialogContent className="sm:max-w-[425px] rounded-2xl border-zinc-200/40 dark:border-zinc-800/40 shadow-xl bg-background/95 backdrop-blur-xl gap-0 p-0 overflow-hidden">
         <div className="p-6 pb-4 border-b border-border/40">

@@ -17,7 +17,9 @@ export function ModelSelector() {
   const [models, setModels] = useState<OpenRouterModel[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
-  const [filterType, setFilterType] = useState<"all" | "free" | "paid" | "latest" | "popular">("all")
+  
+  const [primaryFilter, setPrimaryFilter] = useState<"all" | "free" | "paid">("all")
+  const [secondaryFilter, setSecondaryFilter] = useState<"default" | "latest" | "popular" | "used">("default")
 
   const [protectedModel, setProtectedModel] = useState<OpenRouterModel | null>(null)
 
@@ -39,27 +41,45 @@ export function ModelSelector() {
   const groupedModels = useMemo(() => {
     let result = [...filteredModels];
     
-    // Apply categorical filters
-    if (filterType === 'free') {
+    // Apply Primary Filters
+    if (primaryFilter === 'free') {
       result = result.filter(m => m.id.endsWith(':free') || m.pricing?.prompt === "0");
-    } else if (filterType === 'paid') {
+    } else if (primaryFilter === 'paid') {
       result = result.filter(m => !(m.id.endsWith(':free') || m.pricing?.prompt === "0"));
-    } else if (filterType === 'latest') {
-      result = result.sort((a, b) => (b.created || 0) - (a.created || 0));
-    } else if (filterType === 'popular') {
-      const popularProviders = ['anthropic', 'openai', 'google', 'meta-llama', 'mistralai'];
-      result = result.filter(m => popularProviders.some(p => m.id.includes(p)));
     }
 
-    // Split strictly into what we have to render for layout structure if 'all' is selected
-    if (filterType === 'all') {
+    // Apply Secondary Filters
+    if (secondaryFilter === 'latest') {
+      // Sort by created timestamp descending
+      result = result.sort((a, b) => (b.created || 0) - (a.created || 0));
+    } else if (secondaryFilter === 'popular') {
+      // Top providers roughly
+      const popularProviders = ['anthropic', 'openai', 'google', 'meta-llama', 'mistralai'];
+      result = result.filter(m => popularProviders.some(p => m.id.includes(p)));
+    } else if (secondaryFilter === 'used') {
+      // Heuristic for "Mostly Used": Big context, famous models, non-experimental
+      result = result.filter(m => {
+        const id = m.id.toLowerCase();
+        return (
+          id.includes('claude-3.5-sonnet') || 
+          id.includes('gpt-4o') || 
+          id.includes('gemini-1.5') || 
+          id.includes('llama-3.1') ||
+          id.includes('llama-3.3')
+        ) && !id.includes('experimental') && !id.includes('beta');
+      });
+    }
+
+    // Split for rendering layout if 'all' is selected and 'default' is the sort
+    if (primaryFilter === 'all' && secondaryFilter === 'default') {
       const free = result.filter(m => m.id.endsWith(':free') || m.pricing?.prompt === "0")
       const paid = result.filter(m => !(m.id.endsWith(':free') || m.pricing?.prompt === "0"))
       return { free, paid, singleList: null }
     }
 
+    // If anything else is selected, flatten the view into a single list
     return { free: [], paid: [], singleList: result }
-  }, [filteredModels, filterType])
+  }, [filteredModels, primaryFilter, secondaryFilter])
 
   const handleSelect = (model: OpenRouterModel) => {
     const isFree = model.id.endsWith(':free') || model.pricing?.prompt === "0"
@@ -144,20 +164,41 @@ export function ModelSelector() {
                   />
                 </div>
                 
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none snap-x mask-fade-r">
-                  {['all', 'free', 'paid', 'latest', 'popular'].map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setFilterType(f as any)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium tracking-wide capitalize flex-shrink-0 transition-colors snap-start ${
-                        filterType === f 
-                          ? 'bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900' 
-                          : 'bg-zinc-200/50 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:hover:bg-zinc-800'
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none snap-x mask-fade-r">
+                    {['all', 'free', 'paid'].map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setPrimaryFilter(f as any)}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-semibold tracking-wide capitalize flex-shrink-0 transition-colors snap-start ${
+                          primaryFilter === f 
+                            ? 'bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900 shadow-sm' 
+                            : 'bg-zinc-200/50 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-transparent hover:border-border/50'
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none snap-x mask-fade-r">
+                    {['default', 'latest', 'popular', 'mostly used'].map((f) => {
+                      const filterVal = f === 'mostly used' ? 'used' : f;
+                      return (
+                        <button
+                          key={f}
+                          onClick={() => setSecondaryFilter(filterVal as any)}
+                          className={`px-3 py-1 rounded-md text-[11px] font-medium tracking-wide capitalize flex-shrink-0 transition-colors snap-start ${
+                            secondaryFilter === filterVal 
+                              ? 'bg-zinc-200/80 text-zinc-800 dark:bg-zinc-800 text-zinc-200' 
+                              : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-foreground'
+                          }`}
+                        >
+                          {f}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
 
