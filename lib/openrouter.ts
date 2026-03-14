@@ -3,14 +3,28 @@ import OpenAI from "openai";
 export interface OpenRouterModel {
   id: string;
   name: string;
+  description?: string;
   context_length: number;
+  architecture?: {
+    modality?: string;
+    tokenizer?: string;
+    instruct_type?: string | null;
+  };
   pricing: {
     prompt: string;
     completion: string;
+    image?: string;
+    request?: string;
   };
   top_provider: {
+    context_length?: number;
     max_completion_tokens: number | null;
+    is_moderated?: boolean;
   };
+  per_request_limits?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  } | null;
   created?: number;
 }
 

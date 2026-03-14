@@ -25,6 +25,7 @@ export interface Chat {
   settings: ChatSettings;
   createdAt: number;
   updatedAt: number;
+  deletedAt?: number;
 }
 
 export interface AppState {
@@ -32,10 +33,14 @@ export interface AppState {
   setApiKey: (key: string) => void;
   
   chats: Chat[];
+  deletedChats: Chat[];
   activeChatId: string | null;
   
   createChat: (model: string, systemPrompt?: string, title?: string) => string;
   deleteChat: (id: string) => void;
+  restoreChat: (id: string) => void;
+  permanentlyDeleteChat: (id: string) => void;
+  clearOldDeletedChats: () => void;
   setActiveChat: (id: string | null) => void;
   updateChatTitle: (id: string, title: string) => void;
   
@@ -53,6 +58,12 @@ export interface AppState {
   setUserName: (name: string) => void;
   setAssistantName: (name: string) => void;
   setDefaultSystemPrompt: (prompt: string) => void;
+
+  // Dynamic model cache (not persisted)
+  cachedFreeModelIds: string[];
+  setCachedFreeModelIds: (ids: string[]) => void;
+  cachedModelNames: Record<string, string>;
+  setCachedModelNames: (names: Record<string, string>) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -62,6 +73,7 @@ export const useAppStore = create<AppState>()(
       setApiKey: (key) => set({ apiKey: key }),
       
       chats: [],
+      deletedChats: [],
       activeChatId: null,
       
       createChat: (model, systemPrompt, title) => {
@@ -91,11 +103,41 @@ export const useAppStore = create<AppState>()(
         return id;
       },
       
-      deleteChat: (id) => set((state) => ({
-        chats: state.chats.filter(c => c.id !== id),
-        activeChatId: state.activeChatId === id ? (state.chats.find(c => c.id !== id)?.id || null) : state.activeChatId,
+      deleteChat: (id) => set((state) => {
+        const chatToDelete = state.chats.find(c => c.id === id);
+        if (!chatToDelete) return state;
+
+        return {
+          chats: state.chats.filter(c => c.id !== id),
+          deletedChats: [{ ...chatToDelete, deletedAt: Date.now() }, ...state.deletedChats],
+          activeChatId: state.activeChatId === id ? (state.chats.filter(c => c.id !== id)[0]?.id || null) : state.activeChatId,
+        };
+      }),
+
+      restoreChat: (id) => set((state) => {
+        const chatToRestore = state.deletedChats.find(c => c.id === id);
+        if (!chatToRestore) return state;
+
+        const { deletedAt, ...restChatToRestore } = chatToRestore;
+        return {
+          deletedChats: state.deletedChats.filter(c => c.id !== id),
+          chats: [restChatToRestore, ...state.chats],
+          activeChatId: id,
+        };
+      }),
+
+      permanentlyDeleteChat: (id) => set((state) => ({
+        deletedChats: state.deletedChats.filter(c => c.id !== id)
       })),
-      
+
+      clearOldDeletedChats: () => set((state) => {
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        return {
+          deletedChats: state.deletedChats.filter(c => c.deletedAt && (now - c.deletedAt < thirtyDaysMs))
+        };
+      }),
+
       setActiveChat: (id) => set({ activeChatId: id }),
       
       updateChatTitle: (id, title) => set((state) => ({
@@ -136,17 +178,28 @@ export const useAppStore = create<AppState>()(
       setUserName: (name) => set({ userName: name }),
       setAssistantName: (name) => set({ assistantName: name }),
       setDefaultSystemPrompt: (prompt) => set({ defaultSystemPrompt: prompt }),
+
+      cachedFreeModelIds: [],
+      setCachedFreeModelIds: (ids) => set({ cachedFreeModelIds: ids }),
+      cachedModelNames: {},
+      setCachedModelNames: (names) => set({ cachedModelNames: names }),
     }),
     {
       name: 'routerchat-storage',
       partialize: (state) => ({
         apiKey: state.apiKey,
         chats: state.chats,
+        deletedChats: state.deletedChats,
         activeChatId: state.activeChatId,
         userName: state.userName,
         assistantName: state.assistantName,
         defaultSystemPrompt: state.defaultSystemPrompt,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.clearOldDeletedChats();
+        }
+      }
     }
   )
 );

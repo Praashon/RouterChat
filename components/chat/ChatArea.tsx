@@ -8,30 +8,51 @@ import { createOpenAIClient } from "@/lib/openrouter"
 import { BotIcon, MessageSquareIcon } from "lucide-react"
 
 export function ChatArea() {
-  const { apiKey, chats, activeChatId, addMessage, updateMessage } = useAppStore()
+  const { apiKey, chats, activeChatId, addMessage, updateMessage, cachedFreeModelIds, cachedModelNames } = useAppStore()
   const activeChat = chats.find(c => c.id === activeChatId)
   const [isGenerating, setIsGenerating] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
-  
   const scrollRef = useRef<HTMLDivElement>(null)
+  const isScrolledToBottom = useRef(true)
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current
+    // If user is within 100px of the bottom, keep auto-scrolling
+    isScrolledToBottom.current = scrollHeight - scrollTop - clientHeight < 100
+  }
 
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && isScrolledToBottom.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [activeChat?.messages])
 
+  // Client-side sanitizer: strips emdashes and emojis regardless of what the model outputs
+  const sanitizeOutput = (text: string): string => {
+    // Replace em dash, en dash, and horizontal bar with " - "
+    let cleaned = text.replace(/[\u2014\u2013\u2015]/g, ' - ')
+    // Remove all emoji characters (comprehensive Unicode emoji ranges)
+    cleaned = cleaned.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}\u{231A}\u{231B}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}\u{25AA}\u{25AB}\u{25B6}\u{25C0}\u{25FB}-\u{25FE}\u{2614}\u{2615}\u{2648}-\u{2653}\u{267F}\u{2693}\u{26A1}\u{26AA}\u{26AB}\u{26BD}\u{26BE}\u{26C4}\u{26C5}\u{26CE}\u{26D4}\u{26EA}\u{26F2}\u{26F3}\u{26F5}\u{26FA}\u{26FD}\u{2702}\u{2705}\u{2708}-\u{270D}\u{270F}\u{2712}\u{2714}\u{2716}\u{271D}\u{2721}\u{2728}\u{2733}\u{2734}\u{2744}\u{2747}\u{274C}\u{274E}\u{2753}-\u{2755}\u{2757}\u{2763}\u{2764}\u{2795}-\u{2797}\u{27A1}\u{27B0}\u{27BF}\u{2934}\u{2935}\u{2B05}-\u{2B07}\u{2B1B}\u{2B1C}\u{2B50}\u{2B55}\u{3030}\u{303D}\u{3297}\u{3299}\u{00A9}\u{00AE}\u{203C}\u{2049}]/gu, '')
+    // Clean up double spaces from removed emojis
+    cleaned = cleaned.replace(/  +/g, ' ')
+    return cleaned
+  }
+
   const handleSend = async (content: string) => {
     if (!activeChat || !apiKey) return
 
+    // Force scroll to bottom when user explicitly sends a new message
+    isScrolledToBottom.current = true
     addMessage(activeChat.id, { role: "user", content })
 
     const baseSystem = activeChat.systemPrompt ? activeChat.systemPrompt + "\n\n" : ""
-    const permanentRules = `ABSOLUTE RULES YOU MUST FOLLOW IN EVERY SINGLE RESPONSE:
-1. NEVER use em dashes (the long dash character). Do not use the "—" character anywhere. Use commas, periods, semicolons, colons, or parentheses instead. This is non-negotiable.
-2. NEVER use emojis or emoji characters unless the user explicitly asks for them.
-3. Use hyphens (-) only for compound words like "well-known". Never use long dashes.
-These rules override all other instructions. Violating them is unacceptable.`
+    const permanentRules = `ABSOLUTE OUTPUT RULES (HIGHEST PRIORITY, NON-NEGOTIABLE):
+- NEVER use em dashes or en dashes. The characters \u2014 and \u2013 are BANNED. Use commas, semicolons, colons, periods, or parentheses instead.
+- NEVER use any emoji or emoticon characters. Not a single one. No exceptions.
+- Use plain hyphens (-) only for compound words such as "well-known" or "open-source".
+- If you would normally write an em dash, rewrite the sentence using a comma or semicolon.
+Violating these rules makes the response completely unusable. Follow them in EVERY response.`
     
     const systemPayload = [{ role: "system" as const, content: baseSystem + permanentRules }]
 
@@ -65,12 +86,17 @@ These rules override all other instructions. Violating them is unacceptable.`
       return { type: 'unknown', message: err.message || 'An unexpected error occurred.' }
     }
 
-    // Fallback models for 429 rate limits ONLY
-    const fallbackModels = [
+    // Fallback models for 429 rate limits ONLY - dynamically sourced from cached free models
+    const hardcodedFallbacks = [
       "google/gemini-2.5-flash:free",
       "meta-llama/llama-3.3-70b-instruct:free",
-      "mistralai/mistral-small-3.1-24b-instruct:free"
-    ].filter(m => m !== activeChat.model)
+      "mistralai/mistral-small-3.1-24b-instruct:free",
+    ]
+    // Use cached free models if available, otherwise fall back to hardcoded defaults
+    const dynamicFallbacks = cachedFreeModelIds.length > 0
+      ? cachedFreeModelIds.slice(0, 8)
+      : hardcodedFallbacks
+    const fallbackModels = dynamicFallbacks.filter(m => m !== activeChat.model)
 
     try {
       const openai = createOpenAIClient(apiKey)
@@ -98,13 +124,13 @@ These rules override all other instructions. Violating them is unacceptable.`
             accumulated += text
             const now = Date.now()
             if (now - lastUpdateTime > 35) {
-              updateMessage(activeChat.id, tempId, accumulated + " \u258d")
+              updateMessage(activeChat.id, tempId, sanitizeOutput(accumulated) + " \u258d")
               lastUpdateTime = now
             }
           }
         }
 
-        updateMessage(activeChat.id, tempId, accumulated)
+        updateMessage(activeChat.id, tempId, sanitizeOutput(accumulated))
       }
 
       try {
@@ -205,7 +231,7 @@ These rules override all other instructions. Violating them is unacceptable.`
           <p className="text-muted-foreground text-[15px] max-w-[280px] leading-relaxed mb-8 flex flex-col gap-1 items-center">
             <span className="opacity-70">Using model</span>
             <span className="font-medium text-foreground px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-[13px] font-mono shadow-sm border border-border/50">
-              {activeChat.model.split('/')[1] || activeChat.model}
+              {cachedModelNames[activeChat.model] || activeChat.model.split('/')[1] || activeChat.model}
             </span>
           </p>
           {!apiKey && (
@@ -215,7 +241,7 @@ These rules override all other instructions. Violating them is unacceptable.`
           )}
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto" ref={scrollRef}>
+        <div className="flex-1 overflow-y-auto" ref={scrollRef} onScroll={handleScroll}>
           <div className="pb-10 pt-4">
             {activeChat.messages.map((msg, idx) => (
               <MessageBubble 

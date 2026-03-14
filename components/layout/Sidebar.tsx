@@ -6,6 +6,7 @@ import { PlusIcon, MessageSquare, Trash2, Edit3, Settings } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SettingsModal } from "@/components/settings/SettingsModal"
 import { NewChatDialog } from "@/components/layout/NewChatDialog"
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { useState } from "react"
 import { clsx } from "clsx"
 
@@ -13,6 +14,16 @@ export function Sidebar({ isMobile = false }: { isMobile?: boolean }) {
   const { chats, activeChatId, setActiveChat, deleteChat, updateChatTitle } = useAppStore()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState("")
+  
+  // Delete Confirmation State
+  const [chatToDelete, setChatToDelete] = useState<string | null>(null)
+
+  const confirmDelete = () => {
+    if (chatToDelete) {
+      deleteChat(chatToDelete)
+      setChatToDelete(null)
+    }
+  }
 
   return (
     <div className={clsx(
@@ -83,7 +94,7 @@ export function Sidebar({ isMobile = false }: { isMobile?: boolean }) {
                     <Edit3 className="w-3.5 h-3.5" />
                   </button>
                   <button 
-                    onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }}
+                    onClick={(e) => { e.stopPropagation(); setChatToDelete(chat.id); }}
                     className="p-1.5 rounded-md hover:bg-red-500/10 hover:text-red-500 text-muted-foreground transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -111,6 +122,38 @@ export function Sidebar({ isMobile = false }: { isMobile?: boolean }) {
           </button>
         </SettingsModal>
       </div>
+
+      <Dialog open={!!chatToDelete} onOpenChange={(open) => !open && setChatToDelete(null)}>
+        <DialogContent className="sm:max-w-[400px] rounded-2xl border-zinc-200/40 dark:border-zinc-800/40 shadow-xl bg-background/95 backdrop-blur-xl gap-0 p-0 overflow-hidden">
+          <div className="p-6 pb-4 border-b border-border/40">
+            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mb-4 border border-red-500/20">
+              <Trash2 className="w-5 h-5 text-red-500" />
+            </div>
+            <DialogTitle className="text-xl font-medium tracking-tight mb-1 text-foreground">
+              Delete Chat
+            </DialogTitle>
+            <DialogDescription className="text-[14px] text-muted-foreground leading-relaxed">
+              Are you sure you want to delete this conversation? This action cannot be undone.
+            </DialogDescription>
+          </div>
+          <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/20 flex justify-end gap-2">
+            <Button 
+              variant="ghost" 
+              onClick={() => setChatToDelete(null)}
+              className="rounded-xl h-10 font-medium tracking-tight text-muted-foreground hover:text-foreground hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={confirmDelete}
+              className="rounded-xl h-10 px-6 font-medium tracking-tight shadow-sm"
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
