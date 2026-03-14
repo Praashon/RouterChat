@@ -3,6 +3,7 @@
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
 import { ChatArea } from "@/components/chat/ChatArea"
+import { WelcomeModal } from "@/components/settings/WelcomeModal"
 import { useState, useEffect } from "react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 
@@ -27,6 +28,7 @@ export default function Home() {
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden text-foreground selection:bg-zinc-200 dark:selection:bg-zinc-800 font-sans">
+      <WelcomeModal />
       {/* Desktop Sidebar */}
       {!isMobile && <Sidebar />}
 

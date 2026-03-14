@@ -55,9 +55,11 @@ export interface AppState {
   userName: string;
   assistantName: string;
   defaultSystemPrompt: string;
+  hasCompletedSetup: boolean;
   setUserName: (name: string) => void;
   setAssistantName: (name: string) => void;
   setDefaultSystemPrompt: (prompt: string) => void;
+  setHasCompletedSetup: (done: boolean) => void;
 
   // Dynamic model cache (not persisted)
   cachedFreeModelIds: string[];
@@ -175,9 +177,11 @@ export const useAppStore = create<AppState>()(
       userName: 'User',
       assistantName: 'Assistant',
       defaultSystemPrompt: '',
+      hasCompletedSetup: false,
       setUserName: (name) => set({ userName: name }),
       setAssistantName: (name) => set({ assistantName: name }),
       setDefaultSystemPrompt: (prompt) => set({ defaultSystemPrompt: prompt }),
+      setHasCompletedSetup: (done) => set({ hasCompletedSetup: done }),
 
       cachedFreeModelIds: [],
       setCachedFreeModelIds: (ids) => set({ cachedFreeModelIds: ids }),
@@ -194,6 +198,7 @@ export const useAppStore = create<AppState>()(
         userName: state.userName,
         assistantName: state.assistantName,
         defaultSystemPrompt: state.defaultSystemPrompt,
+        hasCompletedSetup: state.hasCompletedSetup,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
