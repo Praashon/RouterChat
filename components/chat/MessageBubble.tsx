@@ -9,6 +9,7 @@ import { useTheme } from "next-themes"
 import { CopyIcon, CheckIcon, UserIcon, BotIcon, RefreshCcw } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useAppStore } from "@/lib/store"
 
 export function MessageBubble({ 
   message, 
@@ -22,6 +23,7 @@ export function MessageBubble({
   isGenerating?: boolean;
 }) {
   const isUser = message.role === "user"
+  const { userName, assistantName } = useAppStore()
 
   // Only animate if it's the assistant's last message, and the content is actively streaming over time.
   const isStreaming = !isUser && isLast && isGenerating;
@@ -34,6 +36,10 @@ export function MessageBubble({
         </div>
         
         <div className={`flex-1 min-w-0 prose prose-zinc dark:prose-invert max-w-none text-[15px] leading-relaxed tracking-tight prose-p:my-2 prose-pre:my-0 prose-pre:bg-transparent prose-pre:p-0 prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-headings:font-semibold prose-headings:font-heading prose-headings:tracking-tight ${isStreaming ? 'animate-streaming-message' : ''}`}>
+          <div className="font-semibold text-[13px] text-foreground mb-1 tracking-tight">
+            {isUser ? (userName || "User") : (assistantName || "Assistant")}
+          </div>
+
           {message.content === "" && isStreaming ? (
             <div className="flex gap-1.5 items-center h-[24px] mt-1 text-zinc-400">
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }} />

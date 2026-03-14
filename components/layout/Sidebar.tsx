@@ -2,8 +2,9 @@
 
 import { useAppStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
-import { PlusIcon, MessageSquare, Trash2, Edit3 } from "lucide-react"
+import { PlusIcon, MessageSquare, Trash2, Edit3, Settings } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { SettingsModal } from "@/components/settings/SettingsModal"
 import { useState } from "react"
 import { clsx } from "clsx"
 
@@ -104,6 +105,15 @@ export function Sidebar({ isMobile = false }: { isMobile?: boolean }) {
           )}
         </div>
       </ScrollArea>
+
+      <div className="p-4 border-t border-border/40">
+        <SettingsModal>
+          <button className="w-full flex items-center gap-2.5 p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors font-medium text-[14px] tracking-tight outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            <Settings className="w-4 h-4 opacity-70" />
+            Settings
+          </button>
+        </SettingsModal>
+      </div>
     </div>
   )
 }

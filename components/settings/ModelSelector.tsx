@@ -17,6 +17,7 @@ export function ModelSelector() {
   const [models, setModels] = useState<OpenRouterModel[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
+  const [filterType, setFilterType] = useState<"all" | "free" | "paid" | "latest" | "popular">("all")
 
   const [protectedModel, setProtectedModel] = useState<OpenRouterModel | null>(null)
 
@@ -35,13 +36,30 @@ export function ModelSelector() {
     return models.filter(m => m.name.toLowerCase().includes(s) || m.id.toLowerCase().includes(s))
   }, [models, search])
 
-  const freeModels = useMemo(() => {
-    return filteredModels.filter(m => m.id.endsWith(':free') || m.pricing?.prompt === "0")
-  }, [filteredModels])
+  const groupedModels = useMemo(() => {
+    let result = [...filteredModels];
+    
+    // Apply categorical filters
+    if (filterType === 'free') {
+      result = result.filter(m => m.id.endsWith(':free') || m.pricing?.prompt === "0");
+    } else if (filterType === 'paid') {
+      result = result.filter(m => !(m.id.endsWith(':free') || m.pricing?.prompt === "0"));
+    } else if (filterType === 'latest') {
+      result = result.sort((a, b) => (b.created || 0) - (a.created || 0));
+    } else if (filterType === 'popular') {
+      const popularProviders = ['anthropic', 'openai', 'google', 'meta-llama', 'mistralai'];
+      result = result.filter(m => popularProviders.some(p => m.id.includes(p)));
+    }
 
-  const paidModels = useMemo(() => {
-    return filteredModels.filter(m => !(m.id.endsWith(':free') || m.pricing?.prompt === "0"))
-  }, [filteredModels])
+    // Split strictly into what we have to render for layout structure if 'all' is selected
+    if (filterType === 'all') {
+      const free = result.filter(m => m.id.endsWith(':free') || m.pricing?.prompt === "0")
+      const paid = result.filter(m => !(m.id.endsWith(':free') || m.pricing?.prompt === "0"))
+      return { free, paid, singleList: null }
+    }
+
+    return { free: [], paid: [], singleList: result }
+  }, [filteredModels, filterType])
 
   const handleSelect = (model: OpenRouterModel) => {
     const isFree = model.id.endsWith(':free') || model.pricing?.prompt === "0"
@@ -115,15 +133,31 @@ export function ModelSelector() {
             </div>
           ) : (
             <>
-              <div className="p-4 border-b border-border/40 bg-zinc-50/50 dark:bg-zinc-900/20">
+              <div className="p-4 border-b border-border/40 bg-zinc-50/50 dark:bg-zinc-900/20 flex flex-col gap-3">
                 <div className="relative">
                   <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input 
                     placeholder="Search thousands of models..." 
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="h-12 pl-10 rounded-xl bg-background border-zinc-200/60 dark:border-zinc-800/60 focus-visible:ring-1 focus-visible:ring-zinc-400/50 shadow-sm text-base"
+                    className="h-11 pl-10 rounded-xl bg-background border-zinc-200/60 dark:border-zinc-800/60 focus-visible:ring-1 focus-visible:ring-zinc-400/50 shadow-sm text-[15px]"
                   />
+                </div>
+                
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none snap-x mask-fade-r">
+                  {['all', 'free', 'paid', 'latest', 'popular'].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setFilterType(f as any)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium tracking-wide capitalize flex-shrink-0 transition-colors snap-start ${
+                        filterType === f 
+                          ? 'bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900' 
+                          : 'bg-zinc-200/50 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -133,18 +167,33 @@ export function ModelSelector() {
                     Configure your API key first to view models.
                   </div>
                 ) : loading ? (
-                  <div className="h-40 flex items-center justify-center text-muted-foreground text-sm font-medium">
-                    <span className="animate-pulse">Loading models...</span>
+                  <div className="h-40 flex flex-col items-center justify-center text-muted-foreground text-sm font-medium gap-3">
+                    <span className="animate-pulse">Loading OpenRouter models...</span>
                   </div>
                 ) : (
                   <div className="p-2 space-y-6">
-                    {freeModels.length > 0 && (
+                    {/* Render specific list if tab is active */}
+                    {groupedModels.singleList !== null ? (
+                      <div className="space-y-1">
+                        {groupedModels.singleList.map(model => (
+                          <ModelRow 
+                            key={model.id} 
+                            model={model} 
+                            isActive={activeChat?.model === model.id}
+                            onSelect={() => handleSelect(model)}
+                            isFree={model.id.endsWith(':free') || model.pricing?.prompt === "0"}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <>
+                        {groupedModels.free.length > 0 && (
                       <div className="space-y-2">
                         <h4 className="px-3 text-[11px] font-medium tracking-wider text-muted-foreground uppercase flex items-center gap-1.5 pt-2">
                           <Sparkles className="w-3.5 h-3.5" /> Free Models
                         </h4>
                         <div className="space-y-1">
-                          {freeModels.map(model => (
+                          {groupedModels.free.map(model => (
                             <ModelRow 
                               key={model.id} 
                               model={model} 
@@ -157,13 +206,13 @@ export function ModelSelector() {
                       </div>
                     )}
                     
-                    {paidModels.length > 0 && (
+                    {groupedModels.paid.length > 0 && (
                       <div className="space-y-2">
                         <h4 className="px-3 text-[11px] font-medium tracking-wider text-muted-foreground uppercase pt-4 border-t border-border/40">
                           Premium Models
                         </h4>
                         <div className="space-y-1">
-                          {paidModels.map(model => (
+                          {groupedModels.paid.map(model => (
                             <ModelRow 
                               key={model.id} 
                               model={model} 
@@ -173,6 +222,8 @@ export function ModelSelector() {
                           ))}
                         </div>
                       </div>
+                    )}
+                    </>
                     )}
                   </div>
                 )}

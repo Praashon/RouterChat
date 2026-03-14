@@ -10,7 +10,8 @@ export interface OpenRouterModel {
   };
   top_provider: {
     max_completion_tokens: number | null;
-  }
+  };
+  created?: number;
 }
 
 export async function fetchOpenRouterModels(apiKey: string): Promise<OpenRouterModel[]> {
