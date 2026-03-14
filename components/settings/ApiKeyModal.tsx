@@ -91,6 +91,24 @@ export function ApiKeyModal() {
                 {validationError}
              </div>
           )}
+
+          <div className="rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40 p-4 space-y-3">
+            <p className="text-[12px] font-semibold tracking-wider uppercase text-muted-foreground">Quick Setup Guide</p>
+            <div className="space-y-2.5">
+              <div className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[11px] font-semibold text-foreground mt-0.5">1</span>
+                <p className="text-[13px] text-muted-foreground leading-snug">Create a free key at <a href="https://openrouter.ai/keys" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/keys</a></p>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[11px] font-semibold text-foreground mt-0.5">2</span>
+                <p className="text-[13px] text-muted-foreground leading-snug">Visit <a href="https://openrouter.ai/settings/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/settings/privacy</a> and set Data Policy to "Allow all providers"</p>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[11px] font-semibold text-foreground mt-0.5">3</span>
+                <p className="text-[13px] text-muted-foreground leading-snug">Paste your key above and click Save Key</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center justify-between p-4 px-6 border-t border-border/40 bg-zinc-50/50 dark:bg-zinc-900/20">

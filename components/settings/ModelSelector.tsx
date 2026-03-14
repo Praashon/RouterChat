@@ -19,7 +19,7 @@ export function ModelSelector() {
   const [search, setSearch] = useState("")
   
   const [primaryFilter, setPrimaryFilter] = useState<"all" | "free" | "paid">("all")
-  const [secondaryFilter, setSecondaryFilter] = useState<"default" | "latest" | "popular" | "used">("default")
+  const [secondaryFilter, setSecondaryFilter] = useState<"recommended" | "latest" | "popular" | "used">("recommended")
 
   const [protectedModel, setProtectedModel] = useState<OpenRouterModel | null>(null)
 
@@ -49,7 +49,17 @@ export function ModelSelector() {
     }
 
     // Apply Secondary Filters
-    if (secondaryFilter === 'latest') {
+    if (secondaryFilter === 'recommended') {
+      const stableLimitModels = [
+        'google/gemini-2.5-flash:free',
+        'mistralai/mistral-small-24b-instruct-2501:free',
+        'meta-llama/llama-3.3-70b-instruct:free',
+        'anthropic/claude-3.5-sonnet',
+        'anthropic/claude-3.5-sonnet:beta',
+        'openai/gpt-4o'
+      ];
+      result = result.filter(m => stableLimitModels.includes(m.id));
+    } else if (secondaryFilter === 'latest') {
       // Sort by created timestamp descending
       result = result.sort((a, b) => (b.created || 0) - (a.created || 0));
     } else if (secondaryFilter === 'popular') {
@@ -63,15 +73,16 @@ export function ModelSelector() {
         return (
           id.includes('claude-3.5-sonnet') || 
           id.includes('gpt-4o') || 
-          id.includes('gemini-1.5') || 
+          id.includes('gemini-1.5') ||
+          id.includes('gemini-2.5') || 
           id.includes('llama-3.1') ||
           id.includes('llama-3.3')
         ) && !id.includes('experimental') && !id.includes('beta');
       });
     }
 
-    // Split for rendering layout if 'all' is selected and 'default' is the sort
-    if (primaryFilter === 'all' && secondaryFilter === 'default') {
+    // Split for rendering layout if 'all' is selected and 'recommended' is the sort
+    if (primaryFilter === 'all' && secondaryFilter === 'recommended') {
       const free = result.filter(m => m.id.endsWith(':free') || m.pricing?.prompt === "0")
       const paid = result.filter(m => !(m.id.endsWith(':free') || m.pricing?.prompt === "0"))
       return { free, paid, singleList: null }
@@ -182,7 +193,7 @@ export function ModelSelector() {
                   </div>
 
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none snap-x mask-fade-r">
-                    {['default', 'latest', 'popular', 'mostly used'].map((f) => {
+                    {['recommended', 'latest', 'popular', 'mostly used'].map((f) => {
                       const filterVal = f === 'mostly used' ? 'used' : f;
                       return (
                         <button

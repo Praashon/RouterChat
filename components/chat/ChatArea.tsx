@@ -27,7 +27,11 @@ export function ChatArea() {
     addMessage(activeChat.id, { role: "user", content })
 
     const baseSystem = activeChat.systemPrompt ? activeChat.systemPrompt + "\n\n" : ""
-    const permanentRules = "CRUCIAL AND CRITICAL: DO NOT GIVE ANSWERS WITH EMDASHES. DO NOT GIVE ANSWERS WITH EMOJIS. If user explicitly asks for them, then only give them."
+    const permanentRules = `ABSOLUTE RULES YOU MUST FOLLOW IN EVERY SINGLE RESPONSE:
+1. NEVER use em dashes (the long dash character). Do not use the "—" character anywhere. Use commas, periods, semicolons, colons, or parentheses instead. This is non-negotiable.
+2. NEVER use emojis or emoji characters unless the user explicitly asks for them.
+3. Use hyphens (-) only for compound words like "well-known". Never use long dashes.
+These rules override all other instructions. Violating them is unacceptable.`
     
     const systemPayload = [{ role: "system" as const, content: baseSystem + permanentRules }]
 
@@ -43,53 +47,120 @@ export function ChatArea() {
 
     let accumulated = ""
 
+    // Helper: classify OpenRouter errors into actionable categories
+    const classifyError = (err: any): { type: 'rate_limit' | 'no_endpoints' | 'auth' | 'abort' | 'unknown', message: string } => {
+      if (err.name === 'AbortError') return { type: 'abort', message: '' }
+      const msg = (err.message || '').toLowerCase()
+      const status = err.status || err.statusCode || 0
+
+      if (status === 429 || msg.includes('429') || msg.includes('rate limit') || msg.includes('too many')) {
+        return { type: 'rate_limit', message: err.message }
+      }
+      if (msg.includes('no endpoints') || msg.includes('no available') || msg.includes('guardrail')) {
+        return { type: 'no_endpoints', message: err.message }
+      }
+      if (status === 401 || msg.includes('401') || msg.includes('api key') || msg.includes('unauthorized')) {
+        return { type: 'auth', message: err.message }
+      }
+      return { type: 'unknown', message: err.message || 'An unexpected error occurred.' }
+    }
+
+    // Fallback models for 429 rate limits ONLY
+    const fallbackModels = [
+      "google/gemini-2.5-flash:free",
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "mistralai/mistral-small-3.1-24b-instruct:free"
+    ].filter(m => m !== activeChat.model)
+
     try {
       const openai = createOpenAIClient(apiKey)
       const controller = new AbortController()
       abortControllerRef.current = controller
 
-      const stream = await openai.chat.completions.create({
-        model: activeChat.model,
-        messages: messages as any,
-        stream: true,
-        temperature: activeChat.settings.temperature,
-        top_p: activeChat.settings.top_p,
-        frequency_penalty: activeChat.settings.frequency_penalty,
-        presence_penalty: activeChat.settings.presence_penalty,
-      }, { signal: controller.signal })
+      // Attempt primary model first
+      const attemptStream = async (modelId: string) => {
+        const stream = await openai.chat.completions.create({
+          model: modelId,
+          messages: messages as any,
+          stream: true,
+          temperature: activeChat.settings.temperature,
+          top_p: activeChat.settings.top_p,
+          frequency_penalty: activeChat.settings.frequency_penalty,
+          presence_penalty: activeChat.settings.presence_penalty,
+        }, { signal: controller.signal })
 
-      let lastUpdateTime = Date.now()
+        let lastUpdateTime = Date.now()
+        accumulated = ""
 
-      for await (const chunk of stream) {
-        const text = chunk.choices[0]?.delta?.content || ""
-        if (text) {
-          accumulated += text
-          const now = Date.now()
-          if (now - lastUpdateTime > 35) { // Throttle ~28 FPS to keep main thread fast
-            updateMessage(activeChat.id, tempId, accumulated + " ▍")
-            lastUpdateTime = now
+        for await (const chunk of stream) {
+          const text = chunk.choices[0]?.delta?.content || ""
+          if (text) {
+            accumulated += text
+            const now = Date.now()
+            if (now - lastUpdateTime > 35) {
+              updateMessage(activeChat.id, tempId, accumulated + " \u258d")
+              lastUpdateTime = now
+            }
           }
         }
+
+        updateMessage(activeChat.id, tempId, accumulated)
       }
-      
-      // Flush final text completely without cursor
-      updateMessage(activeChat.id, tempId, accumulated)
+
+      try {
+        await attemptStream(activeChat.model)
+      } catch (primaryErr: any) {
+        const classified = classifyError(primaryErr)
+
+        // Abort: bubble immediately
+        if (classified.type === 'abort') throw primaryErr
+
+        // Auth: stop immediately, no retry
+        if (classified.type === 'auth') {
+          updateMessage(activeChat.id, tempId, `**Authentication Error**\n\nYour API key is invalid or expired. Please update it by clicking the "API Key" button in the top right corner.`)
+          return
+        }
+
+        // No endpoints: this is an account-level issue, retrying won't help
+        if (classified.type === 'no_endpoints') {
+          updateMessage(activeChat.id, tempId, `**No Endpoints Available**\n\nOpenRouter cannot find any providers for this model due to your account's privacy or data settings.\n\n**How to fix this:**\n1. Go to [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy)\n2. Set your Data Policy to "Allow all providers"\n3. Come back and try again\n\nThis is not a rate limit. This affects all models until your privacy settings are updated.`)
+          return
+        }
+
+        // Rate limit (429): try fallbacks
+        if (classified.type === 'rate_limit') {
+          let fallbackSuccess = false
+          for (const fallbackModel of fallbackModels) {
+            try {
+              updateMessage(activeChat.id, tempId, `*Rate limited. Trying ${fallbackModel.split('/')[1]}...*`)
+              await attemptStream(fallbackModel)
+              fallbackSuccess = true
+              break
+            } catch (fallbackErr: any) {
+              const fbClassified = classifyError(fallbackErr)
+              if (fbClassified.type === 'abort') throw fallbackErr
+              if (fbClassified.type === 'no_endpoints') {
+                updateMessage(activeChat.id, tempId, `**No Endpoints Available**\n\nOpenRouter cannot route to any provider. Please visit [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy) and set your Data Policy to "Allow all providers".`)
+                return
+              }
+              // Continue trying next fallback on rate_limit or unknown
+            }
+          }
+          if (!fallbackSuccess) {
+            updateMessage(activeChat.id, tempId, `**All Models Rate Limited**\n\nThe selected model and all fallback models are currently overloaded. Please wait 15-30 seconds and try again.`)
+          }
+          return
+        }
+
+        // Unknown error
+        updateMessage(activeChat.id, tempId, `**Something went wrong**\n\n${classified.message}\n\nPlease try again or switch to a different model.`)
+        return
+      }
     } catch (err: any) {
       if (err.name === 'AbortError') {
         updateMessage(activeChat.id, tempId, accumulated)
       } else {
-        let errorMsg = err.message || "An error occurred during generation."
-        
-        // Make OpenRouter raw errors look beautiful
-        if (errorMsg.includes("429")) {
-          errorMsg = "This free model is currently overloaded with requests. Please try again in a moment, or switch to a different model in the selector."
-        } else if (errorMsg.includes("404")) {
-          errorMsg = "Your OpenRouter guardrail settings or data privacy policy blocked this request. Please check your OpenRouter account settings."
-        } else if (errorMsg.includes("401")) {
-          errorMsg = "Invalid API Key. Please verify your OpenRouter API key in settings."
-        }
-
-        updateMessage(activeChat.id, tempId, `**Connection Error:**\n${errorMsg}`)
+        updateMessage(activeChat.id, tempId, `**Unexpected Error**\n\n${err.message || 'An unknown error occurred.'}\n\nPlease try again.`)
       }
     } finally {
       setIsGenerating(false)
@@ -111,10 +182,41 @@ export function ChatArea() {
         <div className="w-16 h-16 rounded-[1.25rem] bg-zinc-50 dark:bg-zinc-900 border border-border/40 flex items-center justify-center mb-6 shadow-[0_0_1px_1px_rgba(0,0,0,0.03)] dark:shadow-[0_0_1px_1px_rgba(255,255,255,0.03)]">
           <MessageSquareIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-700" />
         </div>
-        <h2 className="text-2xl font-medium tracking-tight text-foreground mb-2">RouterChat</h2>
+        <h2 className="text-2xl font-medium tracking-tight text-foreground mb-2">Welcome to RouterChat</h2>
         <p className="text-muted-foreground text-[15px] max-w-sm leading-relaxed mb-8">
-          A premium desktop-class AI interface. Select a chat from the sidebar or start a new conversation.
+          Your premium AI chat interface powered by OpenRouter.
         </p>
+
+        <div className="w-full max-w-md space-y-3 text-left">
+          <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
+            <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">1</div>
+            <div>
+              <p className="text-[14px] font-medium text-foreground">Get your free API key</p>
+              <p className="text-[13px] text-muted-foreground mt-0.5">Visit <a href="https://openrouter.ai/keys" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/keys</a> and create one.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
+            <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">2</div>
+            <div>
+              <p className="text-[14px] font-medium text-foreground">Set privacy to "Allow all"</p>
+              <p className="text-[13px] text-muted-foreground mt-0.5">Go to <a href="https://openrouter.ai/settings/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/settings/privacy</a> and allow all providers.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
+            <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">3</div>
+            <div>
+              <p className="text-[14px] font-medium text-foreground">Paste your key here</p>
+              <p className="text-[13px] text-muted-foreground mt-0.5">Click the "API Key" button in the top right corner and paste it in.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
+            <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">4</div>
+            <div>
+              <p className="text-[14px] font-medium text-foreground">Start chatting</p>
+              <p className="text-[13px] text-muted-foreground mt-0.5">Click "New Chat" in the sidebar to start your first conversation.</p>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
