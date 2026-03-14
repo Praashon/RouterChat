@@ -218,17 +218,7 @@ Violating these rules makes the response completely unusable. Follow them in EVE
           return;
         }
 
-        // No endpoints: this is an account-level guardrail issue, retrying won't help
-        if (classified.type === "no_endpoints") {
-          updateMessage(
-            activeChat.id,
-            tempId,
-            `**Request Blocked**\n\nOpenRouter cannot process this request due to your account's privacy or safety settings, or the model is unavailable.\n\n**How to fix this:**\n1. Go to [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy)\n2. Ensure all 3 **"Enable free endpoints..."** toggles are switched **ON**.\n3. Come back and try again.`,
-          );
-          return;
-        }
-
-        // Payment required
+        // Payment required - no fallback possible
         if (classified.type === "payment") {
           updateMessage(
             activeChat.id,
@@ -238,9 +228,17 @@ Violating these rules makes the response completely unusable. Follow them in EVE
           return;
         }
 
-        // Rate limit (429): try fallbacks
-        if (classified.type === "rate_limit") {
+        // Rate limit (429) or no_endpoints: try fallback models
+        if (
+          classified.type === "rate_limit" ||
+          classified.type === "no_endpoints"
+        ) {
+          const reason =
+            classified.type === "rate_limit"
+              ? "Rate limited"
+              : "Model unavailable";
           let fallbackSuccess = false;
+          let allNoEndpoints = classified.type === "no_endpoints";
           for (let i = 0; i < fallbackModels.length; i++) {
             const fallbackModel = fallbackModels[i];
             const displayName =
@@ -251,7 +249,7 @@ Violating these rules makes the response completely unusable. Follow them in EVE
               updateMessage(
                 activeChat.id,
                 tempId,
-                `*Rate limited on current model. Retrying with ${displayName}...*`,
+                `*${reason}. Retrying with ${displayName}...*`,
               );
               // Brief delay between fallback attempts to let rate limits clear
               if (i > 0) {
@@ -263,23 +261,26 @@ Violating these rules makes the response completely unusable. Follow them in EVE
             } catch (fallbackErr: any) {
               const fbClassified = classifyError(fallbackErr);
               if (fbClassified.type === "abort") throw fallbackErr;
-              if (fbClassified.type === "no_endpoints") {
-                updateMessage(
-                  activeChat.id,
-                  tempId,
-                  `**Request Blocked**\n\nOpenRouter cannot route to any provider. Please visit [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy) and verify your **"Enable free endpoints"** toggles are ON.`,
-                );
-                return;
-              }
-              // Continue trying next fallback on rate_limit or unknown
+              // Track whether every single failure is no_endpoints (account-level issue)
+              if (fbClassified.type !== "no_endpoints") allNoEndpoints = false;
+              // Continue trying next fallback on any retriable error
             }
           }
           if (!fallbackSuccess) {
-            updateMessage(
-              activeChat.id,
-              tempId,
-              `**All Models Rate Limited**\n\nFree models are currently overloaded. Please wait 30-60 seconds and try again, or switch to a paid model for reliable access.`,
-            );
+            if (allNoEndpoints) {
+              // Every model hit no_endpoints - likely an account settings issue
+              updateMessage(
+                activeChat.id,
+                tempId,
+                `**No Free Endpoints Available**\n\nOpenRouter cannot route to any free provider.\n\n**How to fix this:**\n1. Go to [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy)\n2. Ensure all 3 **"Enable free endpoints..."** toggles are switched **ON**.\n3. Come back and try again.\n\nIf toggles are already on, these models may be temporarily offline.`,
+              );
+            } else {
+              updateMessage(
+                activeChat.id,
+                tempId,
+                `**All Models Unavailable**\n\nFree models are currently overloaded or offline. Please wait 30-60 seconds and try again, or switch to a paid model for reliable access.`,
+              );
+            }
           }
           return;
         }
