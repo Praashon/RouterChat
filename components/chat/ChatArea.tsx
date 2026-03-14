@@ -26,9 +26,10 @@ export function ChatArea() {
 
     addMessage(activeChat.id, { role: "user", content })
 
-    const systemPayload = activeChat.systemPrompt 
-      ? [{ role: "system" as const, content: activeChat.systemPrompt }] 
-      : []
+    const baseSystem = activeChat.systemPrompt ? activeChat.systemPrompt + "\n\n" : ""
+    const permanentRules = "CRUCIAL AND CRITICAL: DO NOT GIVE ANSWERS WITH EMDASHES. DO NOT GIVE ANSWERS WITH EMOJIS. If user explicitly asks for them, then only give them."
+    
+    const systemPayload = [{ role: "system" as const, content: baseSystem + permanentRules }]
 
     const historyPayload = activeChat.messages.map(m => ({ role: m.role, content: m.content }))
     const newPayload = { role: "user" as const, content }
@@ -77,7 +78,18 @@ export function ChatArea() {
       if (err.name === 'AbortError') {
         updateMessage(activeChat.id, tempId, accumulated)
       } else {
-        updateMessage(activeChat.id, tempId, err.message || "An error occurred during generation.")
+        let errorMsg = err.message || "An error occurred during generation."
+        
+        // Make OpenRouter raw errors look beautiful
+        if (errorMsg.includes("429")) {
+          errorMsg = "This free model is currently overloaded with requests. Please try again in a moment, or switch to a different model in the selector."
+        } else if (errorMsg.includes("404")) {
+          errorMsg = "Your OpenRouter guardrail settings or data privacy policy blocked this request. Please check your OpenRouter account settings."
+        } else if (errorMsg.includes("401")) {
+          errorMsg = "Invalid API Key. Please verify your OpenRouter API key in settings."
+        }
+
+        updateMessage(activeChat.id, tempId, `**Connection Error:**\n${errorMsg}`)
       }
     } finally {
       setIsGenerating(false)
