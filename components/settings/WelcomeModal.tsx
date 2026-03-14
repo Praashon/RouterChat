@@ -24,8 +24,6 @@ export function WelcomeModal() {
     <Dialog open={!hasCompletedSetup} onOpenChange={() => {}}>
       <DialogContent
         className="max-w-[95vw] sm:max-w-md rounded-2xl border-zinc-200/40 dark:border-zinc-800/40 shadow-xl bg-background/95 backdrop-blur-xl p-0 overflow-hidden [&>button]:hidden"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <div className="p-6 sm:p-8 pb-2 sm:pb-3 text-center">
           <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center mx-auto mb-4">
