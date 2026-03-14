@@ -36,15 +36,15 @@ export function ChatInput({ onSend, isGenerating, onStop }: ChatInputProps) {
   }
 
   return (
-    <div className="p-4 bg-background">
-      <div className="max-w-3xl mx-auto relative flex items-end bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-border/40 focus-within:ring-1 focus-within:ring-zinc-400/50 shadow-sm transition-shadow">
+    <div className="p-2 sm:p-4 bg-background">
+      <div className="max-w-3xl mx-auto relative flex items-end bg-zinc-50 dark:bg-zinc-900/50 rounded-xl sm:rounded-2xl border border-border/40 focus-within:ring-1 focus-within:ring-zinc-400/50 shadow-sm transition-shadow">
         <textarea
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask anything..."
-          className="w-full max-h-[200px] min-h-[56px] py-4 pl-4 pr-14 bg-transparent resize-none outline-none text-[15px] placeholder:text-muted-foreground/70"
+          className="w-full max-h-[200px] min-h-[48px] sm:min-h-[56px] py-3 sm:py-4 pl-3 sm:pl-4 pr-12 sm:pr-14 bg-transparent resize-none outline-none text-[14px] sm:text-[15px] placeholder:text-muted-foreground/70"
           rows={1}
         />
         

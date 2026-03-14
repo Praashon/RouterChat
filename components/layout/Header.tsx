@@ -10,8 +10,8 @@ export function Header({ toggleSidebar }: { toggleSidebar?: () => void }) {
   const { theme, setTheme } = useTheme()
 
   return (
-    <header className="h-14 border-b border-border/40 bg-zinc-50/50 dark:bg-zinc-900/20 flex items-center justify-between px-4 backdrop-blur-xl shrink-0 z-10 sticky top-0">
-      <div className="flex items-center gap-2">
+    <header className="h-12 sm:h-14 border-b border-border/40 bg-zinc-50/50 dark:bg-zinc-900/20 flex items-center justify-between px-2 sm:px-4 backdrop-blur-xl shrink-0 z-10 sticky top-0">
+      <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
         {toggleSidebar && (
           <Button variant="ghost" size="icon" onClick={toggleSidebar} className="md:hidden h-9 w-9 rounded-xl text-muted-foreground">
             <PanelLeftIcon className="w-4 h-4" />
@@ -20,7 +20,7 @@ export function Header({ toggleSidebar }: { toggleSidebar?: () => void }) {
         <ModelSelector />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         <ApiKeyModal />
         
         <Button 

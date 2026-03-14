@@ -1,0 +1,8 @@
+# Ignore non-essential files in Vercel builds
+node_modules
+.git
+antigravity-awesome-skills
+*.md
+!README.md
+.env.local
+.env.development

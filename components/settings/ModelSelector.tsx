@@ -121,14 +121,14 @@ export function ModelSelector() {
       }}>
         <DialogTrigger 
           render={
-            <Button variant="ghost" className="h-9 gap-2 rounded-xl text-foreground font-medium tracking-tight hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 pr-2 overflow-hidden shadow-none max-w-[200px] md:max-w-xs justify-start" />
+            <Button variant="ghost" className="h-9 gap-1.5 sm:gap-2 rounded-xl text-foreground font-medium tracking-tight hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 pr-2 overflow-hidden shadow-none max-w-[140px] sm:max-w-[200px] md:max-w-xs justify-start text-[13px] sm:text-[14px]" />
           }
         >
           <span className="truncate">{currentModelName}</span>
           <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto flex-shrink-0" />
         </DialogTrigger>
 
-        <DialogContent className="sm:max-w-2xl rounded-2xl border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-background/95 backdrop-blur-xl gap-0 p-0 overflow-hidden h-[80vh] flex flex-col">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl rounded-2xl border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-background/95 backdrop-blur-xl gap-0 p-0 overflow-hidden h-[85vh] sm:h-[80vh] flex flex-col">
           {protectedModel ? (
             <div className="flex flex-col h-full items-center justify-center p-8 text-center bg-zinc-50/50 dark:bg-zinc-900/20">
               <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-border/40 shadow-sm flex items-center justify-center mb-6">
@@ -302,7 +302,7 @@ function ModelRow({ model, isActive, onSelect, isFree = false }: { model: OpenRo
   return (
     <button
       onClick={onSelect}
-      className={`w-full flex items-center justify-between p-3 rounded-xl text-left transition-all outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+      className={`w-full flex items-center justify-between p-2.5 sm:p-3 rounded-xl text-left transition-all outline-none focus-visible:ring-1 focus-visible:ring-ring ${
         isActive 
           ? 'bg-zinc-100 dark:bg-zinc-800' 
           : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/50 active:bg-zinc-100 dark:active:bg-zinc-800/80'
@@ -310,7 +310,7 @@ function ModelRow({ model, isActive, onSelect, isFree = false }: { model: OpenRo
     >
       <div className="flex flex-col gap-1 min-w-0 pr-4">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-[14.5px] tracking-tight truncate text-foreground">
+          <span className="font-medium text-[13px] sm:text-[14.5px] tracking-tight truncate text-foreground">
             {model.name}
           </span>
           {isFree && <Sparkles className="w-3 h-3 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />}

@@ -241,14 +241,14 @@ function WelcomeGuide() {
         <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">1</div>
         <div>
           <p className="text-[14px] font-medium text-foreground">Get your free API key</p>
-          <p className="text-[13px] text-muted-foreground mt-0.5">Visit <a href="https://openrouter.ai/keys" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/keys</a> and create one.</p>
+          <p className="text-[13px] text-muted-foreground mt-0.5">Visit <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/keys</a> and create one.</p>
         </div>
       </div>
       <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
         <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">2</div>
         <div>
           <p className="text-[14px] font-medium text-foreground">Enable all free endpoints</p>
-          <p className="text-[13px] text-muted-foreground mt-0.5">Go to <a href="https://openrouter.ai/settings/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/settings/privacy</a> and turn ON the 3 free endpoint toggles.</p>
+          <p className="text-[13px] text-muted-foreground mt-0.5">Go to <a href="https://openrouter.ai/settings/privacy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/settings/privacy</a> and turn ON the 3 free endpoint toggles.</p>
         </div>
       </div>
       <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
