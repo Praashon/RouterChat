@@ -101,7 +101,7 @@ export function ApiKeyModal() {
               </div>
               <div className="flex items-start gap-2.5">
                 <span className="w-5 h-5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[11px] font-semibold text-foreground mt-0.5">2</span>
-                <p className="text-[13px] text-muted-foreground leading-snug">Visit <a href="https://openrouter.ai/settings/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/settings/privacy</a> and set Data Policy to "Allow all providers"</p>
+                <p className="text-[13px] text-muted-foreground leading-snug">Visit <a href="https://openrouter.ai/settings/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/settings/privacy</a> and turn ON the 3 "Enable free endpoints" toggles</p>
               </div>
               <div className="flex items-start gap-2.5">
                 <span className="w-5 h-5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[11px] font-semibold text-foreground mt-0.5">3</span>

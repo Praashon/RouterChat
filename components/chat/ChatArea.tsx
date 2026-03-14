@@ -53,10 +53,10 @@ These rules override all other instructions. Violating them is unacceptable.`
       const msg = (err.message || '').toLowerCase()
       const status = err.status || err.statusCode || 0
 
-      if (status === 429 || msg.includes('429') || msg.includes('rate limit') || msg.includes('too many')) {
+      if (status === 429 || msg.includes('429') || msg.includes('rate limit') || msg.includes('too many') || msg.includes('no endpoints') || msg.includes('no available')) {
         return { type: 'rate_limit', message: err.message }
       }
-      if (msg.includes('no endpoints') || msg.includes('no available') || msg.includes('guardrail')) {
+      if (msg.includes('guardrail')) {
         return { type: 'no_endpoints', message: err.message }
       }
       if (status === 401 || msg.includes('401') || msg.includes('api key') || msg.includes('unauthorized')) {
@@ -121,9 +121,9 @@ These rules override all other instructions. Violating them is unacceptable.`
           return
         }
 
-        // No endpoints: this is an account-level issue, retrying won't help
+        // No endpoints: this is an account-level guardrail issue, retrying won't help
         if (classified.type === 'no_endpoints') {
-          updateMessage(activeChat.id, tempId, `**No Endpoints Available**\n\nOpenRouter cannot find any providers for this model due to your account's privacy or data settings.\n\n**How to fix this:**\n1. Go to [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy)\n2. Set your Data Policy to "Allow all providers"\n3. Come back and try again\n\nThis is not a rate limit. This affects all models until your privacy settings are updated.`)
+          updateMessage(activeChat.id, tempId, `**Request Blocked**\n\nOpenRouter cannot process this request due to your account's privacy or safety settings.\n\n**How to fix this:**\n1. Go to [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy)\n2. Ensure all 3 **"Enable free endpoints..."** toggles are switched **ON**.\n3. Come back and try again.`)
           return
         }
 
@@ -140,7 +140,7 @@ These rules override all other instructions. Violating them is unacceptable.`
               const fbClassified = classifyError(fallbackErr)
               if (fbClassified.type === 'abort') throw fallbackErr
               if (fbClassified.type === 'no_endpoints') {
-                updateMessage(activeChat.id, tempId, `**No Endpoints Available**\n\nOpenRouter cannot route to any provider. Please visit [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy) and set your Data Policy to "Allow all providers".`)
+                updateMessage(activeChat.id, tempId, `**Request Blocked**\n\nOpenRouter cannot route to any provider. Please visit [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy) and verify your **"Enable free endpoints"** toggles are ON.`)
                 return
               }
               // Continue trying next fallback on rate_limit or unknown
@@ -187,36 +187,7 @@ These rules override all other instructions. Violating them is unacceptable.`
           Your premium AI chat interface powered by OpenRouter.
         </p>
 
-        <div className="w-full max-w-md space-y-3 text-left">
-          <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
-            <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">1</div>
-            <div>
-              <p className="text-[14px] font-medium text-foreground">Get your free API key</p>
-              <p className="text-[13px] text-muted-foreground mt-0.5">Visit <a href="https://openrouter.ai/keys" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/keys</a> and create one.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
-            <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">2</div>
-            <div>
-              <p className="text-[14px] font-medium text-foreground">Set privacy to "Allow all"</p>
-              <p className="text-[13px] text-muted-foreground mt-0.5">Go to <a href="https://openrouter.ai/settings/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/settings/privacy</a> and allow all providers.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
-            <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">3</div>
-            <div>
-              <p className="text-[14px] font-medium text-foreground">Paste your key here</p>
-              <p className="text-[13px] text-muted-foreground mt-0.5">Click the "API Key" button in the top right corner and paste it in.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
-            <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">4</div>
-            <div>
-              <p className="text-[14px] font-medium text-foreground">Start chatting</p>
-              <p className="text-[13px] text-muted-foreground mt-0.5">Click "New Chat" in the sidebar to start your first conversation.</p>
-            </div>
-          </div>
-        </div>
+        <WelcomeGuide />
       </div>
     )
   }
@@ -237,6 +208,11 @@ These rules override all other instructions. Violating them is unacceptable.`
               {activeChat.model.split('/')[1] || activeChat.model}
             </span>
           </p>
+          {!apiKey && (
+            <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <WelcomeGuide />
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto" ref={scrollRef}>
@@ -254,6 +230,41 @@ These rules override all other instructions. Violating them is unacceptable.`
       )}
 
       <ChatInput onSend={handleSend} isGenerating={isGenerating} onStop={handleStop} />
+    </div>
+  )
+}
+
+function WelcomeGuide() {
+  return (
+    <div className="w-full max-w-md space-y-3 text-left">
+      <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
+        <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">1</div>
+        <div>
+          <p className="text-[14px] font-medium text-foreground">Get your free API key</p>
+          <p className="text-[13px] text-muted-foreground mt-0.5">Visit <a href="https://openrouter.ai/keys" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/keys</a> and create one.</p>
+        </div>
+      </div>
+      <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
+        <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">2</div>
+        <div>
+          <p className="text-[14px] font-medium text-foreground">Enable all free endpoints</p>
+          <p className="text-[13px] text-muted-foreground mt-0.5">Go to <a href="https://openrouter.ai/settings/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">openrouter.ai/settings/privacy</a> and turn ON the 3 free endpoint toggles.</p>
+        </div>
+      </div>
+      <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
+        <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">3</div>
+        <div>
+          <p className="text-[14px] font-medium text-foreground">Paste your key here</p>
+          <p className="text-[13px] text-muted-foreground mt-0.5">Click the "API Key" button in the top right corner and paste it in.</p>
+        </div>
+      </div>
+      <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-border/40">
+        <div className="w-7 h-7 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 text-[13px] font-semibold text-foreground">4</div>
+        <div>
+          <p className="text-[14px] font-medium text-foreground">Start chatting</p>
+          <p className="text-[13px] text-muted-foreground mt-0.5">Type a message below to start your first conversation.</p>
+        </div>
+      </div>
     </div>
   )
 }

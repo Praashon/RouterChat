@@ -58,7 +58,7 @@ Ensure you have [Node.js](https://nodejs.org/) (v18+) and `npm` installed.
 When you first open the app, follow the onboarding guide:
 
 1. **Get an API Key:** Visit [openrouter.ai/keys](https://openrouter.ai/keys) to create a free key.
-2. **Allow All Providers:** Go to your [OpenRouter Privacy Settings](https://openrouter.ai/settings/privacy) and set your Data Policy to "Allow all providers" to ensure all requests route properly without throwing a 404 block.
+2. **Enable Free Endpoints:** Go to your [OpenRouter Privacy Settings](https://openrouter.ai/settings/privacy) and turn **ON** the three "Enable free endpoints" toggles. This ensures your requests are routed correctly and prevents "404 No Endpoints" errors.
 3. **Paste Key:** Click the "API Key" button in the app's top right corner and paste your key.
 
 ##  Usage Notes
